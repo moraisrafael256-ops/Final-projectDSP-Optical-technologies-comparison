@@ -1,94 +1,82 @@
-% System simulation parameters for PAM-4
-N_bits = 1e6; % Total number of random bits
-N_symb = N_bits / 2; % Number of symbols (2 bits per PAM-4 symbol)
-SNR_dB = 0:1:10; % Vector of Signal-to-Noise Ratio (Eb/N0) in dB
-SNR_lin = 10.^(SNR_dB / 10); % Conversion from dB to linear scale
+% System simulation parameters for PAM-4[cite: 2]
+N_bits = 1e6; % Total number of random bits[cite: 2]
+N_symb = N_bits / 2; % Number of symbols (2 bits per PAM-4 symbol)[cite: 2]
+SNR_dB = 0:1:10; % Vector of Signal-to-Noise Ratio (Eb/N0) in dB[cite: 2]
+SNR_lin = 10.^(SNR_dB / 10); % Conversion from dB to linear scale[cite: 2]
 
-% Preallocate arrays to store results
+% Preallocate arrays to store results[cite: 2]
 simulated_BER = zeros(1, length(SNR_dB));
-theoretical_BER = zeros(1, length(SNR_dB));
 simulated_SER = zeros(1, length(SNR_dB));
+simulated_BER_ssrc = zeros(1, length(SNR_dB)); % Added for SSRC
+simulated_SER_ssrc = zeros(1, length(SNR_dB)); % Added for SSRC
+theoretical_BER = zeros(1, length(SNR_dB));
 theoretical_SER = zeros(1, length(SNR_dB));
 
 for k = 1:length(SNR_dB)
-    % 1. Generate bit stream 
+    % 1. Generate bit stream[cite: 2]
     b1 = randi([0 1], 1, N_symb); 
     b2 = randi([0 1], 1, N_symb); 
     
-    % 2. Symbol mapping with Gray coding (PAM-4)
-    % Mapping: 
-    % 00 -> -3
-    % 01 -> -1
-    % 11 -> +1
-    % 10 -> +3
+    % 2. Symbol mapping with Gray coding (PAM-4)[cite: 2]
     S_k = zeros(1, N_symb);
     S_k(b1 == 0 & b2 == 0) = -3;
     S_k(b1 == 0 & b2 == 1) = -1;
     S_k(b1 == 1 & b2 == 1) =  1;
     S_k(b1 == 1 & b2 == 0) =  3;
     
-    % 3. Add noise - AWGN channel
-    % The symbols are {-3, -1, 1, 3}. 
-    % Average symbol energy Es = (9 + 1 + 1 + 9) / 4 = 5.
-    % Since there are 2 bits per symbol, average bit energy Eb = Es / 2 = 2.5.
-    % To maintain the requested Eb/N0, we calculate N0 based on this Eb:
+    % 3. Add noise - AWGN channel[cite: 2]
     N0 = 2.5 / SNR_lin(k);
     
-    % Generate real Gaussian noise (1D modulation)
+    % --- Discrete Channel ---
     n_k = sqrt(N0 / 2) * randn(1, N_symb); 
-    
-    % Received signal
     r_k = S_k + n_k; 
     
-    % 4. Decision according to the sliding thresholds
-    % Start with all decision vector elements as -3
-    dec_S = -3 * ones(1, N_symb);
+    % --- SSRC Continuous Channel ---
+    r_k_ssrc = ssrc_awgn_channel(S_k, N0, false);
     
-    % Find vector indices and set decisions
+    % 4. Decision according to the sliding thresholds (Discrete & SSRC)[cite: 2]
+    dec_S = -3 * ones(1, N_symb);
     dec_S(r_k >= -2) = -1;
     dec_S(r_k >= 0)  =  1;
-    dec_S(r_k >= 2)  =  3; % Standard threshold is 2 (correcting the rI>=1 typo)
+    dec_S(r_k >= 2)  =  3; 
     
-    % 5. Demapping back to bits (Inverse Gray coding)
-    dec_b1 = zeros(1, N_symb);
-    dec_b2 = zeros(1, N_symb);
+    dec_S_ssrc = -3 * ones(1, N_symb);
+    dec_S_ssrc(r_k_ssrc >= -2) = -1;
+    dec_S_ssrc(r_k_ssrc >= 0)  =  1;
+    dec_S_ssrc(r_k_ssrc >= 2)  =  3;
     
-    % b1 is 1 if symbol is +1 or +3
-    dec_b1(dec_S == 1 | dec_S == 3) = 1;
-    % b2 is 1 if symbol is -1 or +1
-    dec_b2(dec_S == -1 | dec_S == 1) = 1;
+    % 5. Demapping back to bits (Discrete & SSRC)[cite: 2]
+    dec_b1 = (dec_S == 1 | dec_S == 3);
+    dec_b2 = (dec_S == -1 | dec_S == 1);
     
-    % 6. Calculate BER and SER numerically
-    % Bit errors
-    err_b1 = (b1 ~= dec_b1);
-    err_b2 = (b2 ~= dec_b2);
+    dec_b1_ssrc = (dec_S_ssrc == 1 | dec_S_ssrc == 3);
+    dec_b2_ssrc = (dec_S_ssrc == -1 | dec_S_ssrc == 1);
     
-    total_bit_errors = sum(err_b1) + sum(err_b2);
-    simulated_BER(k) = total_bit_errors / N_bits;
+    % 6. Calculate BER and SER numerically[cite: 2]
+    simulated_BER(k) = (sum(b1 ~= dec_b1) + sum(b2 ~= dec_b2)) / N_bits;
+    simulated_SER(k) = sum(S_k ~= dec_S) / N_symb;
     
-    % Symbol errors
-    err_symb = (S_k ~= dec_S);
-    simulated_SER(k) = sum(err_symb) / N_symb;
+    simulated_BER_ssrc(k) = (sum(b1 ~= dec_b1_ssrc) + sum(b2 ~= dec_b2_ssrc)) / N_bits;
+    simulated_SER_ssrc(k) = sum(S_k ~= dec_S_ssrc) / N_symb;
     
-    % 7. Theoretical calculation for PAM-4
-    % Theoretical SER for PAM-M: 2*(M-1)/M * Q(sqrt( (6*log2(M)/(M^2-1)) * Eb/N0 ))
-    % For M=4: 1.5 * Q(sqrt(0.8 * Eb/N0))
+    % 7. Theoretical calculation for PAM-4[cite: 2]
     p_s = 1.5 * qfunc(sqrt(0.8 * SNR_lin(k)));
     theoretical_SER(k) = p_s;
-    
-    % Theoretical BER with Gray coding is approximately SER / log2(M)
     theoretical_BER(k) = p_s / 2;
 end
 
-% Plot the graph - Compare BER and SER
+% Plot the graph - Compare BER and SER[cite: 2]
 figure;
 semilogy(SNR_dB, simulated_BER, 'bo-', 'LineWidth', 1.5, 'MarkerSize', 6);
 hold on;
+semilogy(SNR_dB, simulated_BER_ssrc, 'cx-', 'LineWidth', 1.5, 'MarkerSize', 8);
 semilogy(SNR_dB, theoretical_BER, 'k--', 'LineWidth', 1.5);
 semilogy(SNR_dB, simulated_SER, 'rs-', 'LineWidth', 1.5, 'MarkerSize', 6);
+semilogy(SNR_dB, simulated_SER_ssrc, 'm+-', 'LineWidth', 1.5, 'MarkerSize', 8);
 semilogy(SNR_dB, theoretical_SER, 'g--', 'LineWidth', 1.5);
 grid on;
 xlabel('SNR (E_b/N_0) [dB]');
 ylabel('Error Rate');
-title('PAM-4 Error Rates: BER vs SER');
-legend('Numeric BER', 'Theory BER', 'Numeric SER', 'Theory SER');
+title('PAM-4 Error Rates: Discrete vs SSRC vs Theory');
+legend('Numeric BER (Discrete)', 'Numeric BER (SSRC)', 'Theory BER', ...
+       'Numeric SER (Discrete)', 'Numeric SER (SSRC)', 'Theory SER');
