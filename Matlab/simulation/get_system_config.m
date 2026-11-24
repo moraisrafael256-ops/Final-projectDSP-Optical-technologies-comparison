@@ -26,7 +26,6 @@ function cfg = get_system_config(mod_type, N_symb, channel_mode, enable_fiber, e
     % Task 2.1 sampling & pulse-shaping parameters (Slide 9)
     cfg.sps_tx = 2;                        % Upsampling rate before SSRC / NRZ
     cfg.sps_ch = 8;                        % Channel sampling rate after DAC
-    cfg.osr    = cfg.sps_ch / cfg.sps_tx;  % Oversampling ratio = 4
     cfg.beta   = 0.1;                      % SSRC roll-off factor
     cfg.span   = 32;                       % SSRC filter span in symbols
 

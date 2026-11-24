@@ -1,16 +1,17 @@
-# Task 3.2 — Modular Communications System with Ideal DCF Compensation
+# Task 3.3 — Modular Communications System (DAC/ADC + Fiber + DCF Limitations)
 
-Extends the Task 3.1 optical fiber model to include **Task 3.2 (Dispersion Compensating Fiber — DCF, Slides 12–13)** satisfying $L_1 D_1 + L_2 D_2 = 0$.
+Complete modular MATLAB simulation environment covering **Task 1, Task 2.1, Task 3.1, Task 3.2, and Task 3.3 (DCF Limitations, Slide 14)**.
 
 ## Quick Start
-1. Open MATLAB and set your Current Folder to `task3_2_modular_comm_system/`.
-2. Run `run_ber_wrapper.m`.
-   - Runs **QPSK** and **16QAM** by default (as requested on Slides 12–13).
-   - Verifies $L_1 D_1 + L_2 D_2 = 0$ ($L_1 = 20\text{ km}, D_1 = 17\text{ ps/(nm}\cdot\text{km)}, L_2 = 3.4\text{ km}, D_2 = -100\text{ ps/(nm}\cdot\text{km)}$).
-   - Plots BER/SER (Fiber + Ideal DCF vs. Uncompensated Fiber vs. Theory) and side-by-side constellations (Uncompensated vs. DCF-compensated).
+1. Open MATLAB and set your Current Folder to `task3_3_modular_comm_system/`.
+2. **Task 3.3 (DCF Limitations — $\Delta L$ Sweep):** Run `run_task3_3_dcf_limitations.m`.
+   - Automatically solves for the exact $E_b/N_0$ giving $\text{BER} = 10^{-3}$ at $\Delta L = 0$ for **QPSK** (~6.79 dB) and **16-QAM** (~10.52 dB).
+   - Sweeps $L_1 = 20\text{ km} + \Delta L$ for $\Delta L = -4000 : 100 : 4000\text{ m}$ across **50, 100, and 200 Gbaud**.
+   - Plots BER vs. $\Delta L$ bathtub curves for each modulation format.
+3. **Task 3.2 (Ideal DCF BER vs. SNR):** Run `run_ber_wrapper.m`.
 
-## What Changed from Task 3.1
-- `get_system_config.m` — Added `enable_dcf`, `D2 = -100e-6` [s/m^2], and `L2 = 3.4e3` [m].
-- `comm_system.m` — Reuses `fiber(s_t, f, cfg.D2, cfg.lambda, cfg.L2)` immediately after the SMF span when `cfg.enable_dcf` is `true`.
-- `run_ber_wrapper.m` — Loops over `mod_list = {'QPSK', '16QAM'}` and compares Fiber + DCF against Uncompensated Fiber and Theory.
-- `blocks/plot_ber_results.m` — Updated titles and legends for Task 3.2 DCF comparison.
+## New & Updated Files for Task 3.3
+- `run_task3_3_dcf_limitations.m` — Top-level wrapper for the Slide 14 $\Delta L$ and baud-rate sweep.
+- `blocks/find_snr_for_ber.m` — Solves `calc_theory_ber_ser(snr, mod_type) == target_ber` via `fzero`.
+- `blocks/plot_dcf_limitations.m` — Plots BER vs. $\Delta L$ [km] for 50, 100, and 200 Gbaud on a log y-axis.
+- `comm_system.m` — Computes `F_samp = cfg.sps_ch * cfg.SR` dynamically so sweeping `cfg.SR` stays in sync automatically.
