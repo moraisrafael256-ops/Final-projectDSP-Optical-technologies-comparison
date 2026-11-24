@@ -1,28 +1,16 @@
-# Task 2.1 — Modular Communications System (DAC & ADC)
+# Task 3.2 — Modular Communications System with Ideal DCF Compensation
 
-Modular MATLAB simulation environment for **Task 2.1 (DAC and ADC)** supporting `PAM2`, `QPSK`, `PAM4`, and `16QAM`.
+Extends the Task 3.1 optical fiber model to include **Task 3.2 (Dispersion Compensating Fiber — DCF, Slides 12–13)** satisfying $L_1 D_1 + L_2 D_2 = 0$.
 
 ## Quick Start
-1. Open MATLAB and set your Current Folder to `task2_1_modular_comm_system/`.
-2. Open `run_ber_wrapper.m`.
-3. Set `mod_type` to `'QPSK'`, `'16QAM'`, `'PAM2'`, or `'PAM4'` and run the script.
+1. Open MATLAB and set your Current Folder to `task3_2_modular_comm_system/`.
+2. Run `run_ber_wrapper.m`.
+   - Runs **QPSK** and **16QAM** by default (as requested on Slides 12–13).
+   - Verifies $L_1 D_1 + L_2 D_2 = 0$ ($L_1 = 20\text{ km}, D_1 = 17\text{ ps/(nm}\cdot\text{km)}, L_2 = 3.4\text{ km}, D_2 = -100\text{ ps/(nm}\cdot\text{km)}$).
+   - Plots BER/SER (Fiber + Ideal DCF vs. Uncompensated Fiber vs. Theory) and side-by-side constellations (Uncompensated vs. DCF-compensated).
 
-## Architecture
-- `run_ber_wrapper.m` — Top-level BER/SER sweep and plotting wrapper.
-- `get_system_config.m` — Central configuration factory (automatically selects SSRC at SPS=2 for QPSK/16-QAM and NRZ at SPS=2 for PAM-2/PAM-4).
-- `comm_system.m` — Step-by-step communications chain (TX -> DAC -> Channel -> ADC -> RX -> BER/SER). Includes a marked hook between `dac_resample` and `add_awgn_channel` for plugging in `fiber.m` and DCF in Tasks 3.1–3.3.
-- `blocks/` — Independent function per signal-processing block:
-  - `generate_bits.m`
-  - `modulate_bits.m`
-  - `tx_upsample.m`
-  - `design_pulse_filter.m`
-  - `pulse_filter.m`
-  - `dac_resample.m`
-  - `add_awgn_channel.m`
-  - `adc_resample.m`
-  - `rx_downsample.m`
-  - `decide_symbols.m`
-  - `demodulate_symbols.m`
-  - `calc_ber_ser.m`
-  - `calc_theory_ber_ser.m`
-  - `plot_ber_results.m`
+## What Changed from Task 3.1
+- `get_system_config.m` — Added `enable_dcf`, `D2 = -100e-6` [s/m^2], and `L2 = 3.4e3` [m].
+- `comm_system.m` — Reuses `fiber(s_t, f, cfg.D2, cfg.lambda, cfg.L2)` immediately after the SMF span when `cfg.enable_dcf` is `true`.
+- `run_ber_wrapper.m` — Loops over `mod_list = {'QPSK', '16QAM'}` and compares Fiber + DCF against Uncompensated Fiber and Theory.
+- `blocks/plot_ber_results.m` — Updated titles and legends for Task 3.2 DCF comparison.
